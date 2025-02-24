@@ -1,5 +1,4 @@
 'use strict'
-import { default as Network } from "./network.js";
 import * as base from "./cards/base.js";
 
 class Game {
@@ -35,18 +34,21 @@ class Game {
 		attack: async (attacker, victims) => {
 			// timeout, pass, graze
 			let p = new Promise((resolve, reject) => {
-				for (let victim of victims)
-				{
-					this.players[victim].socket.on("graze",
-						(card) => { resolve(["graze", card]); });
-					this.players[victim].socket.on("pass",
-						(card) => { resolve("pass", card); });
+				let playlistener = (card) => {resolve(card)};
+				for (let victim of victims){
+					// listening for play event from any player
+					this.players[victim].socket.once("play", playlistener);
 				}
-				setTimeout(()=>{reject()}, this.settings.graze_timeout);
+				setTimeout(() => {
+					for (let victim of victims) {
+						this.players[victim].socket.off("play", playlistener);
+					}
+					reject();
+				}, this.settings.graze_timeout);
 				// broadcast attack, now evone knows victims should do something
 				this.io.emit("attack", attacker, victims);
 			});
-			action = await p.catch((reason) => {
+			let card = await p.catch((reason) => {
 				return false;
 			});
 
@@ -110,25 +112,44 @@ class Game {
 				Most interaction happens on the main step. Players
 				can play AAction cards or put IItem cards into
 				play only on their main step. */
-				let action;
 				do {
-					
 					let p = new Promise((resolve, reject) => {
-						// listening for 2 events, todo later make a function for observing multiple
-						this.players[this.state.public.turn].socket.on("play", (card)=>{resolve(card)});
-						this.players[this.state.public.turn].socket.on("pass", (card)=>{resolve(card)});
+						let playlistener = (card) => {resolve(card)};
+						// listening for play event
+						this.players[this.state.public.turn].socket.once("play", playlistener);
 						// timeout if no response
-						setTimeout(()=>{reject()}, this.settings.main_step_timeout);
-						// client x can play actions > everyone
+						setTimeout(() => {
+								this.players[this.state.public.turn].socket.off("play", playlistener);
+								reject();
+							}, this.settings.main_step_timeout);
+						// "client x can play action cards" > everyone
 						this.io.emit("action", this.players[this.state.public.turn].socket.id);
 					});
-					action = await p.catch((reason) => {
+					let card = await p.catch((reason) => {
 						return false;
 					});
-					// todo legalize, apply the action and broadcast results
+
+					// validate, apply the action and broadcast results
+					if (card === undefined) {
+						// pass
+						break;
+					}
+					// play
+					if ( 
+						this.state.private.hands[this.state.public.turn]
+						.map((cardobj) => {return cardobj.name;})
+						.includes(card)
+					) {
+						// has card
+						let cardobj = this.state.private.hands[this.state.public.turn].find((ele) => (ele.name.equals()));
+						if ( keys(cardobj.fn).includes("action") ) {
+							// card is action
+							cardobj.fn.action(this);
+							// todo above fn can (will often) return that it wont execute after all because of failed additional checks at the beginning
+						}
+					}
 				}
-				while ( !(!action || action[0] == "pass") );
-				this.state.private.decks.main.draw[0].fn.action(this);
+				while ( !(!card || card[0] == "pass") );
 				/* Card types can be
 				identified by symbols on the sides of the card's rule
 				text box. See Card Symbols for more information.

@@ -5,7 +5,6 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { Server } from 'socket.io';
 import Game from './game.js';
-import Network from './network.js';
 
 const app = express();
 const server = createServer(app);
