@@ -4,11 +4,14 @@ const main = [
   new Card(
     "Shoot",
     "/shoot.png",
-    {
-      action: (game)=>{
-        console.log(game);
-      }
-    }
+    [
+      {
+        types: ["action", "danmaku"],
+        fn: (game)=>{
+          console.log(game);
+        },
+      },
+    ]
   ),
 ];
 const incident = [];

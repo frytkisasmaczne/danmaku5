@@ -1,5 +1,6 @@
 'use strict'
 import * as base from "./cards/base.js";
+import randomUUID from 'node:crypto';
 
 class Game {
 	players = [];
@@ -49,8 +50,15 @@ class Game {
 				this.io.emit("attack", attacker, victims);
 			});
 			let card = await p.catch((reason) => {
+				// timeout
 				return false;
 			});
+			if (card !== undefined) {
+				// play
+				let cardobj = this.state.private.hands[this.state.public.turn].find((ele) => (ele.name.equals()));
+				
+			}
+			
 
 		},
 		step: {
@@ -125,26 +133,30 @@ class Game {
 						// "client x can play action cards" > everyone
 						this.io.emit("action", this.players[this.state.public.turn].socket.id);
 					});
-					let card = await p.catch((reason) => {
+					let faceuuid = await p.catch((reason) => {
 						return false;
 					});
-
+					if (faceuuid === false) {
+						// timeout
+						break;
+					}
 					// validate, apply the action and broadcast results
-					if (card === undefined) {
+					if (faceuuid === undefined) {
 						// pass
 						break;
 					}
 					// play
-					if ( 
+					if (
+
 						this.state.private.hands[this.state.public.turn]
 						.map((cardobj) => {return cardobj.name;})
-						.includes(card)
+						.includes(faceuuid)
 					) {
 						// has card
-						let cardobj = this.state.private.hands[this.state.public.turn].find((ele) => (ele.name.equals()));
-						if ( keys(cardobj.fn).includes("action") ) {
+						let faceobj = this.state.private.hands[this.state.public.turn].find((ele) => (ele.name.equals()));
+						if (  ) {
 							// card is action
-							cardobj.fn.action(this);
+							cardobj.fn.action(this); // nonononono call func and catch error after all i think
 							// todo above fn can (will often) return that it wont execute after all because of failed additional checks at the beginning
 						}
 					}
@@ -191,7 +203,12 @@ class Game {
 			},
 		},
 	};
+
 }
+
+
+
+};
 
 // game.fn.next = function(self) {
 // 	if (self.state.public.round == 0 && self.state.public.turn == 0)
