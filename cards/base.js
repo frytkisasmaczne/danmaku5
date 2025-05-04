@@ -19,15 +19,14 @@ const main = [
   */
     "1Up",
     "/1up.png",
-    (purpose, args, game)=>{
-      let ret = {modify: {}};
+    (purpose, args, game) => {
+      let ret = {modify: {uuid: {}}};
       if (purpose == "action") {
         if (!args.target) {
           console.log("no args.target on 1up");
           return false;
         }
         // let target = game.uuid[args.target];
-        ret.modify = {uuid: {}};
         ret.modify.uuid[args.target] = {"hp": "+1"};
         return ret;
       }
