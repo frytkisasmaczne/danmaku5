@@ -1,0 +1,6 @@
+danmaku mozna bombowac i klient to sam ma wiedziec
+sv -> e "Playa played SomeBullShitCardTM"
+e (countdown 5s na bombowanie)
+sv (countdown 5s || Play event || Pass event from e)
+NiggaPlayer -> sv "Reaction Bomb"
+kill me javascript async callback hell

@@ -1,12 +1,19 @@
 'use strict'
+import {Mutex, Semaphore, withTimeout, E_TIMEOUT} from 'async-mutex';
+import { Change } from "./lib.js"
 import * as base from "./cards/base.js";
 import randomUUID from 'node:crypto';
 
 class Game {
+	uuid = {/*00-uuid-xd: (card object reference from cards and hands arrays)*/};
+	stock_effects = [/*{source_uuid: "00-uuid-xd", fn: (game) => {...}}*/];
+	history = [];
+	pending_history = [/*{event: "card played",  player: "00-uuid", card: "01-uuid", effect: {modify: {uuid: {02-target-uuid: {"hp": "+1"}}}}}*/]; /* only literally the rn-being-resolved action/whatever here */
+	pending_changes = [{/*modify: {uuid: {02-target-uuid: {"hp": "+1"}}}*/}];
 	players = [];
 	settings = {
-		graze_timeout: 20,
-		main_step_timeout: 30,
+		graze_timeout: 2000,
+		main_step_timeout: 3000,
 		/* disabled_cards: [], */
 	};
 	state = {
@@ -17,7 +24,7 @@ class Game {
 			step: 0
 		},
 		private: {
-			hands: {},
+			hands: [[], [], [], []],
 			decks: {
 				main: { draw: [], discard: [] },
 				incident: { draw: [], discard: [] },
@@ -26,7 +33,7 @@ class Game {
 	};
 	constructor(io) {
 		this.io = io;
-		this.const = [];
+		// this.const = [];
 		// this.network = new Network(io);
 		// this.network.on("q", () => {this.fn.q()});
 		// console.log(this.network.listeners("q")[0].toString());
@@ -44,13 +51,13 @@ class Game {
 					for (let victim of victims) {
 						this.players[victim].socket.off("play", playlistener);
 					}
-					reject();
+					reject("timeout");
 				}, this.settings.graze_timeout);
 				// broadcast attack, now evone knows victims should do something
 				this.io.emit("attack", attacker, victims);
 			});
 			let card = await p.catch((reason) => {
-				// timeout
+				console.log(reason);
 				return false;
 			});
 			if (card !== undefined) {
@@ -60,7 +67,56 @@ class Game {
 			}
 			
 
+			for (let e of this.stock_effects) {
+				
+			}
 		},
+		net_prompt: async (event, data, awaited_event, awaited_senders, timeout) => {
+			let ret;
+
+			let s = withTimeout(new Semaphore(1), timeout);
+			const on_socket = (data) => {
+				ret = data;
+				s.release()
+			};
+			await s.acquire();
+
+			// listening for play event
+			for (const p in awaited_senders) {
+				p.socket.once(awaited_event, on_socket);
+			}
+			// "client x can  cards" > everyone
+			this.io.emit(event, data);
+
+			await s.acquire().catch((reason) => {
+				console.log("event " + reason);
+				// if (e === E_TIMEOUT) {
+				// }
+				ret = false;
+			});
+			return ret;
+		},
+		// net_await: async (event, senders, timeout) => {
+		// 	let p = new Promise((resolve, reject) => {
+		// 		let playlistener = (data) => {resolve(data)};
+		// 		// listening for play event
+		// 		for (const p in senders) {
+		// 			p.socket.once(event, playlistener);
+		// 		}
+		// 		// timeout if no response
+		// 		setTimeout(() => {
+		// 			for (const p in senders) {
+		// 				p.socket.off(event, playlistener);
+		// 			}
+		// 			reject("timeout");
+		// 		}, timeout);
+		// 	});
+		// 	return await p.catch((reason) => {
+		// 		console.log("event " + reason);
+		// 		return false;
+		// 		// card = false
+		// 	});
+		// },
 		step: {
 			setup: async () => {
 				// for (let f in )
@@ -71,6 +127,8 @@ class Game {
 				Shuffle the Incident cards together and place
 				them in a pile next to the Main Deck cards
 				*/
+
+				// uuidv4();
 			},
 			assign_characters: async () => {
 				/* Assign Characters
@@ -120,48 +178,49 @@ class Game {
 				Most interaction happens on the main step. Players
 				can play AAction cards or put IItem cards into
 				play only on their main step. */
-				do {
-					let p = new Promise((resolve, reject) => {
-						let playlistener = (card) => {resolve(card)};
-						// listening for play event
-						this.players[this.state.public.turn].socket.once("play", playlistener);
-						// timeout if no response
-						setTimeout(() => {
-								this.players[this.state.public.turn].socket.off("play", playlistener);
-								reject();
-							}, this.settings.main_step_timeout);
-						// "client x can play action cards" > everyone
-						this.io.emit("action", this.players[this.state.public.turn].socket.id);
-					});
-					let faceuuid = await p.catch((reason) => {
-						return false;
-					});
-					if (faceuuid === false) {
-						// timeout
-						break;
-					}
+				for (;;) {
+					let played_card = await this.fn.net_prompt("action", this.players[this.state.public.turn], "play", [this.players[this.state.public.turn]], this.settings.main_step_timeout);
 					// validate, apply the action and broadcast results
-					if (faceuuid === undefined) {
+					console.log(played_card);
+					if ( !played_card || played_card == "pass" || !("uuid" in played_card) || !("args" in played_card) ) {
 						// pass
 						break;
 					}
-					// play
-					if (
-
-						this.state.private.hands[this.state.public.turn]
-						.map((cardobj) => {return cardobj.name;})
-						.includes(faceuuid)
-					) {
-						// has card
-						let faceobj = this.state.private.hands[this.state.public.turn].find((ele) => (ele.name.equals()));
-						if (  ) {
-							// card is action
-							cardobj.fn.action(this); // nonononono call func and catch error after all i think
-							// todo above fn can (will often) return that it wont execute after all because of failed additional checks at the beginning
-						}
+					// if not has card xd
+					if ( !this.state.private.hands[this.state.public.turn].includes(played_card.uuid) ) {
+						// no card
+						console.log("cheating " + played_card.uuid);
+						break;
 					}
+					// check card play possibility
+					let ret = this.uuid[played_card.uuid].fn("action", played_card.args, this);
+					console.log("ret " + ret);
+					if (ret === false) {
+						console.log(this.uuid[played_card.uuid].name + " couldn't apply")
+					}
+					this.pending_history.push({
+						event: "card played",
+						player: this.players[this.state.public.turn].uuid,
+						card: played_card.uuid,
+						effect: ret
+					});
+					// card effect prepared
+					// check stock effects
+					for (let e of this.stock_effects) {
+						let change = e.fn(this);
+						this.pending_history.push({
+							event: "stock effect",
+							source: e.source.uuid,
+							reason: played_card.uuid,
+							effect: change
+						});
+					}
+
+					let played_card = await this.fn.net_prompt("reaction", [this.players[this.state.public.turn], ], "play", [this.players[this.state.public.turn]], this.settings.main_step_timeout);
+					// apply whats been created in pending_history
+					
 				}
-				while ( !(!card || card[0] == "pass") );
+				console.log("main step over");
 				/* Card types can be
 				identified by symbols on the sides of the card's rule
 				text box. See Card Symbols for more information.

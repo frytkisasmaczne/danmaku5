@@ -1,41 +1,30 @@
-'use strict'
-import randomUUID from 'node:crypto';
+import { v4 as uuidv4 } from 'uuid';
 
-class UUIDs {
-  constructor() {
-    if (UUIDs._instance) {
-      return UUIDs._instance;
-    }
-    UUIDs._instance = this;
-  };
-  list = [];
-
-}
-
-class Face {
-  constructor(types, fn) {
-    this.uuid = randomUUID();
-    UUIDs().list.push(this.uuid);
-    this.types = types;
+class Card {
+  constructor(name, img, fn) {
+    this.uuid = uuidv4();
+    this.name = name;
+    this.img = img;
     this.fn = fn;
   }
 
 }
 
-class Card {
-  constructor(name, img, faces) {
-    this.uuid = randomUUID();
-    UUIDs().list.push(this.uuid);
-    this.name = name;
-    this.img = img;
-    this.faces = faces;
-    for (let face in this.faces) {
-      face.parent = this;
-    }
+class Change {
+  constructor(parent, type, effect) {
+    this.parent = parent;
+    this.type = type;
+    this.effect = effect;
   }
-
 }
 
+class Sema {
+  constructor() {
+    this.promise = new Promise((resolve, reject) => {
+      this.resolve = resolve;
+      this.reject = reject;
+    });
+  }
+}
 
-
-export { Card };
+export { Card, Change, Sema };
